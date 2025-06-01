@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,37 +10,109 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Save, Eye, Edit, Trash2, FileText } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-const AdminPanel = ({ onTestCreated }) => {
+interface TypingTest {
+  id: string;
+  title: string;
+  content: string;
+  language: 'english' | 'hindi';
+  difficulty: 'easy' | 'medium' | 'hard';
+  category: string;
+  time_limit: number;
+  created_at: string;
+}
+
+const AdminPanel = ({ onTestCreated }: { onTestCreated: (test: TypingTest) => void }) => {
   const [newTest, setNewTest] = useState({
     title: '',
     content: '',
-    language: 'english',
-    difficulty: 'medium',
+    language: 'english' as 'english' | 'hindi',
+    difficulty: 'medium' as 'easy' | 'medium' | 'hard',
     timeLimit: 60,
     category: 'general'
   });
 
-  const [savedTests, setSavedTests] = useState([
-    {
-      id: 1,
-      title: 'Basic English Typing',
-      language: 'english',
-      difficulty: 'easy',
-      category: 'general',
-      content: 'The quick brown fox jumps over the lazy dog...'
-    },
-    {
-      id: 2,
-      title: 'हिंदी टाइपिंग अभ्यास',
-      language: 'hindi',
-      difficulty: 'medium',
-      category: 'general',
-      content: 'यह एक हिंदी टाइपिंग टेस्ट है...'
-    }
-  ]);
+  const queryClient = useQueryClient();
 
-  const handleInputChange = (field, value) => {
+  // Fetch typing tests
+  const { data: tests = [], isLoading } = useQuery({
+    queryKey: ['typing-tests'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('typing_tests')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as TypingTest[];
+    }
+  });
+
+  // Create test mutation
+  const createTestMutation = useMutation({
+    mutationFn: async (testData: typeof newTest) => {
+      const { data, error } = await supabase
+        .from('typing_tests')
+        .insert([{
+          title: testData.title,
+          content: testData.content,
+          language: testData.language,
+          difficulty: testData.difficulty,
+          time_limit: testData.timeLimit,
+          category: testData.category
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['typing-tests'] });
+      setNewTest({
+        title: '',
+        content: '',
+        language: 'english',
+        difficulty: 'medium',
+        timeLimit: 60,
+        category: 'general'
+      });
+      toast({
+        title: "Success",
+        description: "Typing test created successfully!"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create test: " + error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Delete test mutation
+  const deleteTestMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('typing_tests')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['typing-tests'] });
+      toast({
+        title: "Test Deleted",
+        description: "Typing test has been removed"
+      });
+    }
+  });
+
+  const handleInputChange = (field: string, value: any) => {
     setNewTest(prev => ({
       ...prev,
       [field]: value
@@ -57,29 +129,10 @@ const AdminPanel = ({ onTestCreated }) => {
       return;
     }
 
-    const test = {
-      ...newTest,
-      id: Date.now(),
-      createdAt: new Date().toISOString()
-    };
-
-    setSavedTests(prev => [...prev, test]);
-    setNewTest({
-      title: '',
-      content: '',
-      language: 'english',
-      difficulty: 'medium',
-      timeLimit: 60,
-      category: 'general'
-    });
-
-    toast({
-      title: "Success",
-      description: "Typing test saved successfully!"
-    });
+    createTestMutation.mutate(newTest);
   };
 
-  const handleUseTest = (test) => {
+  const handleUseTest = (test: TypingTest) => {
     onTestCreated(test);
     toast({
       title: "Test Loaded",
@@ -87,15 +140,22 @@ const AdminPanel = ({ onTestCreated }) => {
     });
   };
 
-  const handleDeleteTest = (id) => {
-    setSavedTests(prev => prev.filter(test => test.id !== id));
-    toast({
-      title: "Test Deleted",
-      description: "Typing test has been removed"
+  const handleDeleteTest = (id: string) => {
+    deleteTestMutation.mutate(id);
+  };
+
+  const handleEditTest = (test: TypingTest) => {
+    setNewTest({
+      title: test.title,
+      content: test.content,
+      language: test.language,
+      difficulty: test.difficulty,
+      timeLimit: test.time_limit,
+      category: test.category
     });
   };
 
-  const getDifficultyColor = (difficulty) => {
+  const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy': return 'bg-green-500';
       case 'medium': return 'bg-yellow-500';
@@ -127,7 +187,6 @@ const AdminPanel = ({ onTestCreated }) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Test Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">Test Title *</Label>
@@ -202,7 +261,6 @@ const AdminPanel = ({ onTestCreated }) => {
                 </div>
               </div>
 
-              {/* Test Content */}
               <div className="space-y-2">
                 <Label htmlFor="content">Test Content *</Label>
                 <Textarea
@@ -221,7 +279,6 @@ const AdminPanel = ({ onTestCreated }) => {
                 </div>
               </div>
 
-              {/* Preview */}
               {newTest.content && (
                 <div className="space-y-2">
                   <Label>Preview</Label>
@@ -236,9 +293,13 @@ const AdminPanel = ({ onTestCreated }) => {
               )}
 
               <div className="flex gap-4">
-                <Button onClick={handleSaveTest} className="flex items-center gap-2">
+                <Button 
+                  onClick={handleSaveTest} 
+                  className="flex items-center gap-2"
+                  disabled={createTestMutation.isPending}
+                >
                   <Save className="h-4 w-4" />
-                  Save Test
+                  {createTestMutation.isPending ? 'Saving...' : 'Save Test'}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -267,20 +328,19 @@ const AdminPanel = ({ onTestCreated }) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {savedTests.length === 0 ? (
+              {isLoading ? (
+                <div className="text-center py-8">Loading tests...</div>
+              ) : tests.length === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                   <h3 className="text-lg font-semibold mb-2">No Tests Created</h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     Create your first typing test to get started.
                   </p>
-                  <Button onClick={() => document.querySelector('[value="create"]').click()}>
-                    Create Test
-                  </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {savedTests.map((test) => (
+                  {tests.map((test) => (
                     <div key={test.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-3">
                         <div>
@@ -308,10 +368,7 @@ const AdminPanel = ({ onTestCreated }) => {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => {
-                              setNewTest(test);
-                              document.querySelector('[value="create"]').click();
-                            }}
+                            onClick={() => handleEditTest(test)}
                             className="flex items-center gap-1"
                           >
                             <Edit className="h-3 w-3" />
@@ -322,6 +379,7 @@ const AdminPanel = ({ onTestCreated }) => {
                             variant="destructive"
                             onClick={() => handleDeleteTest(test.id)}
                             className="flex items-center gap-1"
+                            disabled={deleteTestMutation.isPending}
                           >
                             <Trash2 className="h-3 w-3" />
                             Delete
@@ -339,7 +397,7 @@ const AdminPanel = ({ onTestCreated }) => {
                       
                       <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
                         <span>{test.content.split(' ').length} words</span>
-                        <span>Default: {test.timeLimit}s</span>
+                        <span>Default: {test.time_limit}s</span>
                       </div>
                     </div>
                   ))}
