@@ -27,6 +27,7 @@ interface TestResults {
   incorrectWords: number;
   totalKeystrokes: number;
   correctKeystrokes: number;
+  keystrokeAccuracy?: number; // Added keystroke accuracy
   errors: number;
   timeTaken: number;
   totalTime: number;
@@ -63,8 +64,25 @@ const Results = ({ results }: ResultsProps) => {
 
   const performance = getPerformanceLevel(results.wpm);
 
+  // Format time display (minutes:seconds)
+  const formatTime = (seconds: number) => {
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    return `${seconds}s`;
+  };
+
+  // Calculate more accurate metrics
+  const errorRate = results.totalKeystrokes > 0 ? 
+    Math.round((results.errors / results.totalKeystrokes) * 100) : 0;
+  
+  const keystrokeAccuracy = results.keystrokeAccuracy || 
+    (results.totalKeystrokes > 0 ? Math.round((results.correctKeystrokes / results.totalKeystrokes) * 100) : 0);
+
   const shareResults = () => {
-    const text = `I just completed a typing test!\n🚀 Speed: ${results.wpm} WPM\n🎯 Accuracy: ${results.accuracy}%\n⏱️ Time: ${results.timeTaken}s\n\nTry it yourself!`;
+    const text = `I just completed a typing test!\n🚀 Speed: ${results.wpm} WPM\n🎯 Accuracy: ${results.accuracy}%\n⏱️ Time: ${formatTime(results.timeTaken)}\n\nTry it yourself!`;
     
     if (navigator.share) {
       navigator.share({
@@ -86,7 +104,9 @@ const Results = ({ results }: ResultsProps) => {
       language: results.language,
       wpm: results.wpm,
       accuracy: results.accuracy,
-      timeTaken: results.timeTaken,
+      keystrokeAccuracy: keystrokeAccuracy,
+      timeTaken: formatTime(results.timeTaken),
+      errors: results.errors,
       date: new Date().toISOString()
     };
     
@@ -135,7 +155,7 @@ const Results = ({ results }: ResultsProps) => {
             <div className="text-3xl font-bold mb-1 text-green-600">{results.accuracy}%</div>
             <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1">
               <Target className="h-4 w-4" />
-              Accuracy
+              Text Accuracy
             </div>
             <Progress value={results.accuracy} className="mt-2 h-2" />
           </CardContent>
@@ -143,13 +163,13 @@ const Results = ({ results }: ResultsProps) => {
 
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-3xl font-bold mb-1">{results.timeTaken}s</div>
+            <div className="text-3xl font-bold mb-1">{formatTime(results.timeTaken)}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1">
               <Clock className="h-4 w-4" />
               Time Taken
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              out of {results.totalTime}s
+              out of {formatTime(results.totalTime)}
             </div>
           </CardContent>
         </Card>
@@ -221,30 +241,20 @@ const Results = ({ results }: ResultsProps) => {
               <span className="font-semibold text-green-600">{results.correctKeystrokes}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-red-600 dark:text-red-400">Errors</span>
+              <span className="text-red-600 dark:text-red-400">Character Errors</span>
               <span className="font-semibold text-red-600">{results.errors}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Error Rate</span>
-              <span className="font-semibold">
-                {results.totalKeystrokes > 0 ? 
-                  Math.round((results.errors / results.totalKeystrokes) * 100) : 0}%
-              </span>
+              <span className="font-semibold">{errorRate}%</span>
             </div>
             
             <div className="pt-2">
               <div className="flex justify-between text-sm mb-1">
                 <span>Keystroke Accuracy</span>
-                <span>
-                  {results.totalKeystrokes > 0 ? 
-                    Math.round((results.correctKeystrokes / results.totalKeystrokes) * 100) : 0}%
-                </span>
+                <span>{keystrokeAccuracy}%</span>
               </div>
-              <Progress 
-                value={results.totalKeystrokes > 0 ? 
-                  (results.correctKeystrokes / results.totalKeystrokes) * 100 : 0} 
-                className="h-2" 
-              />
+              <Progress value={keystrokeAccuracy} className="h-2" />
             </div>
           </CardContent>
         </Card>
@@ -275,7 +285,13 @@ const Results = ({ results }: ResultsProps) => {
                 {results.accuracy >= 95 && (
                   <li className="flex items-center gap-2 text-green-600">
                     <CheckCircle2 className="h-4 w-4" />
-                    Excellent accuracy!
+                    Excellent text accuracy!
+                  </li>
+                )}
+                {keystrokeAccuracy >= 95 && (
+                  <li className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Outstanding keystroke precision!
                   </li>
                 )}
                 {results.accuracy < 95 && (
@@ -295,6 +311,11 @@ const Results = ({ results }: ResultsProps) => {
                     • Practice with error highlighting enabled
                   </li>
                 )}
+                {errorRate > 5 && (
+                  <li className="text-gray-600 dark:text-gray-400">
+                    • Slow down and focus on accuracy first
+                  </li>
+                )}
                 {results.wpm < 30 && (
                   <li className="text-gray-600 dark:text-gray-400">
                     • Focus on finger placement and posture
@@ -307,6 +328,33 @@ const Results = ({ results }: ResultsProps) => {
                   • Try different difficulty levels
                 </li>
               </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Performance Metrics Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Detailed Metrics Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="font-medium text-gray-500 dark:text-gray-400">Net WPM</div>
+              <div className="text-xl font-bold">{results.wpm}</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="font-medium text-gray-500 dark:text-gray-400">Gross WPM</div>
+              <div className="text-xl font-bold">{results.grossWpm}</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="font-medium text-gray-500 dark:text-gray-400">Text Accuracy</div>
+              <div className="text-xl font-bold">{results.accuracy}%</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="font-medium text-gray-500 dark:text-gray-400">Keystroke Accuracy</div>
+              <div className="text-xl font-bold">{keystrokeAccuracy}%</div>
             </div>
           </div>
         </CardContent>

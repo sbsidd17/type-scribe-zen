@@ -4,10 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Target, Zap, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { Clock, Target, Zap, CheckCircle2, XCircle, RotateCcw, ChevronDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface TypingTest {
   id: string;
@@ -46,11 +52,13 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
   const [words, setWords] = useState<string[]>([]);
   const [selectedTest, setSelectedTest] = useState<TypingTest | null>(currentTest);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [categorizedTests, setCategorizedTests] = useState<Record<string, TypingTest[]>>({});
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const displayRef = useRef<HTMLDivElement>(null);
 
-  // Fetch available tests
+  // Fetch available tests and organize by category
   const { data: availableTests = [] } = useQuery({
     queryKey: ['typing-tests', settings.language],
     queryFn: async () => {
@@ -66,13 +74,35 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     }
   });
 
+  // Organize tests by category
+  useEffect(() => {
+    if (availableTests.length > 0) {
+      const grouped = availableTests.reduce((acc, test) => {
+        if (!acc[test.category]) {
+          acc[test.category] = [];
+        }
+        acc[test.category].push(test);
+        return acc;
+      }, {} as Record<string, TypingTest[]>);
+      
+      setCategorizedTests(grouped);
+      
+      // Set default category and test if none selected
+      if (!selectedCategory && Object.keys(grouped).length > 0) {
+        const firstCategory = Object.keys(grouped)[0];
+        setSelectedCategory(firstCategory);
+        if (!selectedTest) {
+          setSelectedTest(grouped[firstCategory][0]);
+        }
+      }
+    }
+  }, [availableTests, selectedCategory, selectedTest]);
+
   useEffect(() => {
     if (currentTest) {
       setSelectedTest(currentTest);
-    } else if (availableTests.length > 0 && !selectedTest) {
-      setSelectedTest(availableTests[0]);
     }
-  }, [currentTest, availableTests, selectedTest]);
+  }, [currentTest]);
 
   useEffect(() => {
     if (selectedTest) {
@@ -142,21 +172,21 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
 
     setUserInput(value);
     
-    // Calculate current position
+    // Calculate errors more accurately
     const fullText = words.join(' ');
-    let charIndex = 0;
-    let wordIndex = 0;
+    const currentErrors: number[] = [];
+    let correctCount = 0;
     
-    for (let i = 0; i < value.length; i++) {
-      if (charIndex < fullText.length) {
-        if (value[i] === fullText[charIndex]) {
-          setCorrectKeystrokes(prev => prev + 1);
-        } else {
-          setErrors(prev => [...prev, charIndex]);
-        }
-        charIndex++;
+    for (let i = 0; i < value.length && i < fullText.length; i++) {
+      if (value[i] === fullText[i]) {
+        correctCount++;
+      } else {
+        currentErrors.push(i);
       }
     }
+    
+    setCorrectKeystrokes(correctCount);
+    setErrors(currentErrors);
     
     // Update word index
     let tempWordIndex = 0;
@@ -174,8 +204,8 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     
     // Auto-scroll
     if (displayRef.current && textareaRef.current) {
-      const lines = Math.floor(value.length / 80); // Approximate characters per line
-      const scrollPosition = lines * 24; // Approximate line height
+      const lines = Math.floor(value.length / 80);
+      const scrollPosition = lines * 24;
       displayRef.current.scrollTop = scrollPosition;
     }
   };
@@ -191,25 +221,36 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     const fullText = words.join(' ');
     const typedText = userInput.trim();
     
-    // Calculate metrics
-    const totalWords = typedText.split(' ').length;
-    const correctChars = typedText.split('').filter((char, index) => char === fullText[index]).length;
-    const totalChars = typedText.length;
-    const accuracy = totalChars > 0 ? (correctChars / totalChars) * 100 : 0;
-    const wpm = Math.round((correctChars / 5) / (timeTaken / 60));
-    const grossWpm = Math.round((totalChars / 5) / (timeTaken / 60));
-    const errorCount = totalChars - correctChars;
+    // More accurate calculations
+    const actualTypedChars = Math.min(typedText.length, fullText.length);
+    const correctChars = correctKeystrokes;
+    const errorCount = actualTypedChars - correctChars;
+    const accuracy = actualTypedChars > 0 ? (correctChars / actualTypedChars) * 100 : 0;
     
+    // WPM calculation (standard: 5 characters = 1 word)
+    const wpm = Math.round((correctChars / 5) / (timeTaken / 60));
+    const grossWpm = Math.round((actualTypedChars / 5) / (timeTaken / 60));
+    
+    // Word-level calculations
+    const typedWords = typedText.split(' ');
+    const expectedWords = fullText.split(' ').slice(0, typedWords.length);
+    const correctWords = typedWords.filter((word, index) => word === expectedWords[index]).length;
+    const incorrectWords = typedWords.length - correctWords;
+    
+    // Keystroke accuracy
+    const keystrokeAccuracy = totalKeystrokes > 0 ? (correctKeystrokes / totalKeystrokes) * 100 : 0;
+
     const results = {
       wpm,
       grossWpm,
       accuracy: Math.round(accuracy * 100) / 100,
       totalWords: words.length,
-      typedWords: totalWords,
-      correctWords: Math.floor(correctChars / 5),
-      incorrectWords: totalWords - Math.floor(correctChars / 5),
+      typedWords: typedWords.length,
+      correctWords,
+      incorrectWords,
       totalKeystrokes,
       correctKeystrokes,
+      keystrokeAccuracy: Math.round(keystrokeAccuracy * 100) / 100,
       errors: errorCount,
       timeTaken: Math.round(timeTaken),
       totalTime: selectedTest?.time_limit || 60,
@@ -273,9 +314,18 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     });
   };
 
+  const formatTime = (seconds: number) => {
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    return `${seconds}s`;
+  };
+
   const progress = selectedTest ? (userInput.length / selectedTest.content.length) * 100 : 0;
   const wpm = startTime && userInput.length > 0 ? 
-    Math.round(((userInput.length / 5) / ((Date.now() - startTime.getTime()) / 1000 / 60))) : 0;
+    Math.round(((correctKeystrokes / 5) / ((Date.now() - startTime.getTime()) / 1000 / 60))) : 0;
 
   if (!selectedTest) {
     return (
@@ -291,33 +341,52 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Test Selection */}
-      {!currentTest && availableTests.length > 1 && (
+      {/* Test Category Selection */}
+      {!currentTest && Object.keys(categorizedTests).length > 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Select a Test</CardTitle>
+            <CardTitle>Select Test Category</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {availableTests.map((test) => (
-                <div 
-                  key={test.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedTest?.id === test.id 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                      : 'hover:border-gray-400'
-                  }`}
-                  onClick={() => setSelectedTest(test)}
-                >
-                  <h3 className="font-semibold">{test.title}</h3>
-                  <div className="flex gap-2 mt-2">
-                    <Badge variant="outline">{test.difficulty}</Badge>
-                    <Badge variant="outline">{test.category}</Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                    {test.time_limit}s • {test.content.split(' ').length} words
-                  </p>
-                </div>
+              {Object.keys(categorizedTests).map((category) => (
+                <DropdownMenu key={category}>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant={selectedCategory === category ? "default" : "outline"}
+                      className="flex items-center justify-between w-full"
+                    >
+                      <span className="capitalize">{category}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{categorizedTests[category].length}</Badge>
+                        <ChevronDown className="h-4 w-4" />
+                      </div>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-80">
+                    {categorizedTests[category].map((test) => (
+                      <DropdownMenuItem 
+                        key={test.id}
+                        className="cursor-pointer p-4"
+                        onClick={() => {
+                          setSelectedCategory(category);
+                          setSelectedTest(test);
+                        }}
+                      >
+                        <div className="w-full">
+                          <div className="font-semibold">{test.title}</div>
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">{test.difficulty}</Badge>
+                            <Badge variant="outline" className="text-xs">{formatTime(test.time_limit)}</Badge>
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {test.content.split(' ').length} words
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ))}
             </div>
           </CardContent>
@@ -329,8 +398,8 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
         <Card>
           <CardContent className="p-4 text-center">
             <Clock className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-            <div className="text-2xl font-bold">{timeLeft}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">seconds</div>
+            <div className="text-2xl font-bold">{formatTime(timeLeft)}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">remaining</div>
           </CardContent>
         </Card>
         
@@ -352,7 +421,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
         
         <Card>
           <CardContent className="p-4 text-center">
-            <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-purple-500" />
+            <XCircle className="h-6 w-6 mx-auto mb-2 text-red-500" />
             <div className="text-2xl font-bold">{errors.length}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Errors</div>
           </CardContent>
@@ -370,6 +439,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
               {selectedTest.title}
               <Badge>{selectedTest.language === 'hindi' ? 'हिंदी' : 'English'}</Badge>
               <Badge variant="outline">{selectedTest.difficulty}</Badge>
+              <Badge variant="outline">{selectedTest.category}</Badge>
             </CardTitle>
             <Button 
               variant="outline" 
@@ -394,7 +464,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
             {renderText()}
           </div>
 
-          {/* Typing Area */}
+          {/* Typing Area - Fixed dark mode text visibility */}
           <div className="space-y-2">
             <textarea
               ref={textareaRef}
@@ -402,9 +472,13 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
               onChange={handleInputChange}
               disabled={isFinished}
               placeholder={isActive ? "Start typing..." : "Click here and start typing to begin the test"}
-              className={`w-full h-32 p-4 border rounded-lg resize-none text-lg ${
-                selectedTest.language === 'hindi' ? 'font-mangal' : 'font-mono'
-              } ${isFinished ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+              className={`w-full h-32 p-4 border rounded-lg resize-none text-lg 
+                ${selectedTest.language === 'hindi' ? 'font-mangal' : 'font-mono'}
+                ${isFinished ? 'bg-gray-100 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'} 
+                text-gray-900 dark:text-gray-100 
+                border-gray-300 dark:border-gray-600 
+                focus:border-blue-500 dark:focus:border-blue-400 
+                focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400`}
               style={selectedTest.language === 'hindi' ? { fontFamily: 'Noto Sans Devanagari, Mangal, serif' } : {}}
             />
             
