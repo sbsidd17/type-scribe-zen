@@ -59,7 +59,7 @@ const Results = ({ results }: ResultsProps) => {
   const [showAllResults, setShowAllResults] = React.useState(false);
 
   // Fetch user's test history
-  const { data: testHistory = [] } = useQuery({
+  const { data: testHistory = [], isLoading, refetch } = useQuery({
     queryKey: ['test-history'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -81,6 +81,11 @@ const Results = ({ results }: ResultsProps) => {
     enabled: showAllResults
   });
 
+  const handleShowAllResults = () => {
+    setShowAllResults(true);
+    refetch();
+  };
+
   if (!results && !showAllResults) {
     return (
       <Card>
@@ -92,7 +97,7 @@ const Results = ({ results }: ResultsProps) => {
           </p>
           <Button 
             variant="outline" 
-            onClick={() => setShowAllResults(true)}
+            onClick={handleShowAllResults}
             className="flex items-center gap-2"
           >
             <History className="h-4 w-4" />
@@ -121,56 +126,62 @@ const Results = ({ results }: ResultsProps) => {
             </Button>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-96">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Test</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>WPM</TableHead>
-                    <TableHead>Accuracy</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Keystrokes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {testHistory.map((test: any) => (
-                    <TableRow key={test.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{test.typing_tests?.title || 'Unknown Test'}</div>
-                          <div className="flex gap-1 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {test.typing_tests?.language === 'hindi' ? 'हिंदी' : 'English'}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {test.typing_tests?.difficulty}
-                            </Badge>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(test.completed_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="font-medium">{test.wpm}</TableCell>
-                      <TableCell>{test.accuracy.toFixed(1)}%</TableCell>
-                      <TableCell>
-                        {test.time_taken >= 60 
-                          ? `${Math.floor(test.time_taken / 60)}:${(test.time_taken % 60).toString().padStart(2, '0')}`
-                          : `${test.time_taken}s`
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>Total: {test.total_keystrokes}</div>
-                          <div className="text-green-600">Correct: {test.correct_keystrokes}</div>
-                        </div>
-                      </TableCell>
+            {isLoading ? (
+              <div className="text-center py-8">Loading test history...</div>
+            ) : testHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No test history found</div>
+            ) : (
+              <ScrollArea className="h-96">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Test</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>WPM</TableHead>
+                      <TableHead>Accuracy</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Keystrokes</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                  </TableHeader>
+                  <TableBody>
+                    {testHistory.map((test: any) => (
+                      <TableRow key={test.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{test.typing_tests?.title || 'Unknown Test'}</div>
+                            <div className="flex gap-1 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {test.typing_tests?.language === 'hindi' ? 'हिंदी' : 'English'}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {test.typing_tests?.difficulty}
+                              </Badge>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(test.completed_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="font-medium">{test.wpm}</TableCell>
+                        <TableCell>{test.accuracy.toFixed(1)}%</TableCell>
+                        <TableCell>
+                          {test.time_taken >= 60 
+                            ? `${Math.floor(test.time_taken / 60)}:${(test.time_taken % 60).toString().padStart(2, '0')}`
+                            : `${test.time_taken}s`
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>Total: {test.total_keystrokes}</div>
+                            <div className="text-green-600">Correct: {test.correct_keystrokes}</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -244,7 +255,7 @@ const Results = ({ results }: ResultsProps) => {
     URL.revokeObjectURL(url);
   };
 
-  // Render paragraph with color-coded words
+  // Render paragraph with color-coded words showing what was typed for wrong words
   const renderColorCodedText = () => {
     if (!results.originalText) return null;
 
@@ -253,30 +264,49 @@ const Results = ({ results }: ResultsProps) => {
     const wrongWordIndices = new Set(results.wrongWordIndices || []);
 
     return (
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-lg leading-relaxed">
-        {originalWords.map((word, index) => {
-          let className = 'mr-2 px-1 py-0.5 rounded ';
-          
-          if (index < typedWords.length) {
-            // Word was typed
-            if (wrongWordIndices.has(index)) {
-              // Wrong word
-              className += 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300';
+      <div className="space-y-2">
+        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-4 h-4 bg-green-100 dark:bg-green-900/30 rounded"></span>
+            <span>Correct words</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-4 h-4 bg-red-100 dark:bg-red-900/30 rounded"></span>
+            <span>Wrong words (shows what you typed)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></span>
+            <span>Not typed</span>
+          </div>
+        </div>
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-lg leading-relaxed max-h-64 overflow-y-auto">
+          {originalWords.map((word, index) => {
+            let displayText = word;
+            let className = 'mr-2 px-1 py-0.5 rounded inline-block ';
+            
+            if (index < typedWords.length) {
+              // Word was typed
+              if (wrongWordIndices.has(index)) {
+                // Wrong word - show original(typed)
+                const typedWord = typedWords[index] || '';
+                displayText = `${word}(${typedWord})`;
+                className += 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300';
+              } else {
+                // Correct word
+                className += 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+              }
             } else {
-              // Correct word
-              className += 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+              // Word was not typed
+              className += 'text-gray-500 dark:text-gray-400';
             }
-          } else {
-            // Word was not typed
-            className += 'text-gray-500 dark:text-gray-400';
-          }
 
-          return (
-            <span key={index} className={className}>
-              {word}
-            </span>
-          );
-        })}
+            return (
+              <span key={index} className={className}>
+                {displayText}
+              </span>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -357,19 +387,7 @@ const Results = ({ results }: ResultsProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <span className="inline-block w-4 h-4 bg-green-100 dark:bg-green-900/30 rounded mr-2"></span>
-                Correct words
-                <span className="inline-block w-4 h-4 bg-red-100 dark:bg-red-900/30 rounded mx-2 ml-4"></span>
-                Wrong words
-                <span className="inline-block w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded mx-2 ml-4"></span>
-                Not typed
-              </div>
-              <ScrollArea className="h-32">
-                {renderColorCodedText()}
-              </ScrollArea>
-            </div>
+            {renderColorCodedText()}
           </CardContent>
         </Card>
       )}
@@ -559,7 +577,7 @@ const Results = ({ results }: ResultsProps) => {
           <div className="flex flex-wrap gap-4 justify-center">
             <Button 
               variant="outline" 
-              onClick={() => setShowAllResults(true)}
+              onClick={handleShowAllResults}
               className="flex items-center gap-2"
             >
               <History className="h-4 w-4" />
