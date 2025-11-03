@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      test_results: {
+        Row: {
+          accuracy: number
+          completed_at: string | null
+          correct_chars: number
+          correct_words: number
+          created_at: string | null
+          id: string
+          test_id: string
+          time_taken: number
+          user_id: string
+          wpm: number
+          wrong_chars: number
+          wrong_words: number
+        }
+        Insert: {
+          accuracy: number
+          completed_at?: string | null
+          correct_chars?: number
+          correct_words?: number
+          created_at?: string | null
+          id?: string
+          test_id: string
+          time_taken: number
+          user_id: string
+          wpm: number
+          wrong_chars?: number
+          wrong_words?: number
+        }
+        Update: {
+          accuracy?: number
+          completed_at?: string | null
+          correct_chars?: number
+          correct_words?: number
+          created_at?: string | null
+          id?: string
+          test_id?: string
+          time_taken?: number
+          user_id?: string
+          wpm?: number
+          wrong_chars?: number
+          wrong_words?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_results_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "typing_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      typing_tests: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          difficulty: string
+          id: string
+          is_active: boolean | null
+          language: string
+          time_limit: number
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          difficulty?: string
+          id?: string
+          is_active?: boolean | null
+          language?: string
+          time_limit?: number
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          difficulty?: string
+          id?: string
+          is_active?: boolean | null
+          language?: string
+          time_limit?: number
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
