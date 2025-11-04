@@ -89,17 +89,8 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       }, {} as Record<string, TypingTest[]>);
       
       setCategorizedTests(grouped);
-      
-      // Set default category and test if none selected
-      if (!selectedCategory && Object.keys(grouped).length > 0) {
-        const firstCategory = Object.keys(grouped)[0];
-        setSelectedCategory(firstCategory);
-        if (!selectedTest) {
-          setSelectedTest(grouped[firstCategory][0]);
-        }
-      }
     }
-  }, [availableTests, selectedCategory, selectedTest]);
+  }, [availableTests]);
 
   useEffect(() => {
     if (currentTest) {
@@ -587,14 +578,44 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
               <div className="flex gap-2 items-center flex-wrap">
-                <span className="text-2xl">{selectedLanguage === 'hindi' ? '🇮🇳' : '🇬🇧'}</span>
-                <Badge variant="secondary" className="text-sm px-2 py-1">
-                  {selectedLanguage === 'hindi' ? 'हिंदी' : 'English'}
-                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedLanguage(null);
+                    setSelectedCategory('');
+                    setSelectedTest(null);
+                  }}
+                  className="flex items-center gap-1 h-8"
+                >
+                  <span className="text-xl">{selectedLanguage === 'hindi' ? '🇮🇳' : '🇬🇧'}</span>
+                  <Badge variant="secondary" className="text-sm px-2 py-1">
+                    {selectedLanguage === 'hindi' ? 'हिंदी' : 'English'}
+                  </Badge>
+                </Button>
                 <span className="text-muted-foreground">→</span>
-                <Badge variant="secondary" className="text-sm px-2 py-1">{selectedCategory}</Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedCategory('');
+                    setSelectedTest(null);
+                  }}
+                  className="h-8"
+                >
+                  <Badge variant="secondary" className="text-sm px-2 py-1">{selectedCategory}</Badge>
+                </Button>
                 <span className="text-muted-foreground">→</span>
-                <Badge variant="secondary" className="text-sm px-2 py-1">{selectedTest.title}</Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedTest(null);
+                  }}
+                  className="h-8"
+                >
+                  <Badge variant="secondary" className="text-sm px-2 py-1">{selectedTest.title}</Badge>
+                </Button>
               </div>
               <Button 
                 variant="outline" 
@@ -603,7 +624,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
                   setSelectedTest(null);
                 }}
               >
-                ← Change
+                ← Change Test
               </Button>
             </div>
 
