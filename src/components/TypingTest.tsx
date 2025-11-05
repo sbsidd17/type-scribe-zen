@@ -848,7 +848,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
           <CardContent className="space-y-4">
             <div 
               ref={displayRef}
-              className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-y-auto max-h-64 min-h-0 text-lg leading-relaxed whitespace-pre-wrap ${
+              className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-y-auto max-h-64 min-h-0 text-lg leading-relaxed ${
                 selectedTest.language === 'hindi' ? 'font-mangal' : 'font-mono'
               }`}
               style={selectedTest.language === 'hindi' ? { fontFamily: 'Noto Sans Devanagari, Mangal, serif' } : {}}
