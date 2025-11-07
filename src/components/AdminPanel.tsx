@@ -457,10 +457,11 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="create-test" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="create-test">Create Test</TabsTrigger>
               <TabsTrigger value="manage-tests">Manage Tests</TabsTrigger>
               <TabsTrigger value="manage-categories">Manage Categories</TabsTrigger>
+              <TabsTrigger value="users">Manage Users</TabsTrigger>
             </TabsList>
 
             <TabsContent value="create-test">

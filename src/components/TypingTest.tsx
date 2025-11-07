@@ -218,10 +218,12 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       startTest();
     }
 
+    // Handle backspace restrictions - check before processing
     if (value.length < userInput.length) {
-      if (settings.backspaceMode === 'disabled') {
+      if (testSettings.backspaceMode === 'disabled') {
         return;
-      } else if (settings.backspaceMode === 'word') {
+      } else if (testSettings.backspaceMode === 'word') {
+        // Allow deletion only within the current word
         const currentWordStart = userInput.lastIndexOf(' ') + 1;
         if (value.length < currentWordStart) {
           return;
@@ -874,6 +876,22 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
                 value={userInput}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
+                onKeyDownCapture={(e) => {
+                  // Prevent all backspace behavior at the browser level when restricted
+                  if (e.key === 'Backspace') {
+                    if (testSettings.backspaceMode === 'disabled') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    } else if (testSettings.backspaceMode === 'word') {
+                      const currentWordStart = userInput.lastIndexOf(' ') + 1;
+                      const cursorPosition = textareaRef.current?.selectionStart || 0;
+                      if (cursorPosition <= currentWordStart) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }
+                    }
+                  }
+                }}
                 disabled={isFinished}
                 placeholder={isActive ? "Type the text above. Press space to move to next word..." : "Click here and start typing to begin the test"}
                 className={`w-full h-32 p-4 border rounded-lg resize-none text-lg 

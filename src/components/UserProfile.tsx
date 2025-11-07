@@ -112,13 +112,17 @@ const UserProfile = ({ user, onSignOut }: UserProfileProps) => {
         avatarUrl = publicUrl;
       }
 
+      // Upsert to handle both existing and new profiles
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
           full_name: fullName,
+          email: user.email,
           ...(avatarUrl && { avatar_url: avatarUrl })
-        })
-        .eq('id', user.id);
+        }, {
+          onConflict: 'id'
+        });
 
       if (error) throw error;
     },

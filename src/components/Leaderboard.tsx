@@ -15,38 +15,13 @@ export const Leaderboard = ({ testId, currentUserId }: LeaderboardProps) => {
   const { data: leaderboard, isLoading } = useQuery({
     queryKey: ['leaderboard', testId],
     queryFn: async () => {
-      let query = supabase
-        .from('test_results')
-        .select('*')
-        .gte('accuracy', 85)
-        .order('wpm', { ascending: false });
-
-      if (testId) {
-        query = query.eq('test_id', testId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc('get_leaderboard', { 
+        p_test_id: testId || null 
+      });
       
       if (error) throw error;
-
-      // Filter for qualifying results: 10 minutes (600s) OR 400+ words
-      const qualified = data?.filter(result => 
-        result.time_taken >= 600 || (result.total_words || 0) >= 400
-      ) || [];
-
-      // Fetch profiles for all qualified results
-      const userIds = [...new Set(qualified.map(r => r.user_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds);
-
-      // Merge profiles with results
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      return qualified.map(result => ({
-        ...result,
-        profile: profileMap.get(result.user_id)
-      }));
+      
+      return data || [];
     },
   });
 
@@ -136,10 +111,10 @@ export const Leaderboard = ({ testId, currentUserId }: LeaderboardProps) => {
 
       <ScrollArea className="h-[500px]">
         <div className="space-y-3">
-          {leaderboard && leaderboard.length > 0 ? (
+           {leaderboard && leaderboard.length > 0 ? (
             leaderboard.map((result, index) => (
               <Card
-                key={result.id}
+                key={result.result_id}
                 className={`p-4 transition-all hover:shadow-md ${
                   result.user_id === currentUserId
                     ? 'border-primary/50 bg-primary/5'
@@ -153,10 +128,10 @@ export const Leaderboard = ({ testId, currentUserId }: LeaderboardProps) => {
                     {getRankIcon(index)}
                   </div>
                   
-                  <div className="flex-1 min-w-0">
+                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p className="font-semibold truncate">
-                        {result.profile?.full_name || result.profile?.email?.split('@')[0] || 'Anonymous'}
+                        {result.display_name || 'Anonymous'}
                       </p>
                       {getRankBadge(index)}
                       {result.user_id === currentUserId && (

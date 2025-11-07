@@ -177,6 +177,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_leaderboard: {
+        Args: { p_test_id: string }
+        Returns: {
+          accuracy: number
+          display_name: string
+          result_id: string
+          time_taken: number
+          total_words: number
+          user_id: string
+          wpm: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
