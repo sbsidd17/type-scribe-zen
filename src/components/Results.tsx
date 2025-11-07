@@ -50,6 +50,7 @@ interface TestResults {
   totalTime: number;
   testTitle: string;
   language: string;
+  testId?: string;
   originalText?: string;
   typedText?: string;
   wrongWordIndices?: number[];
@@ -519,6 +520,20 @@ const Results = ({ results }: ResultsProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {results.testId && results.testId !== 'custom-text' && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              Top Performers for this Test
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Leaderboard testId={results.testId} currentUserId={user?.id} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

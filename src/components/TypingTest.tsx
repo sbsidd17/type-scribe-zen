@@ -312,11 +312,11 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       totalTime: selectedTest?.time_limit || 60,
       testTitle: selectedTest?.title || 'Unknown Test',
       language: selectedTest?.language || 'english',
+      testId: selectedTest?.id,
       originalText: words.join(' '),
       typedText: userInput,
       wrongWordIndices: Array.from(wrongWords)
     };
-
     // Check if qualifies for leaderboard (85%+ accuracy AND 10min+ OR 400+ words)
     const qualifiesForLeaderboard = keystrokeAccuracy >= 85 && (timeTaken >= 600 || typedWords.length >= 400);
 
@@ -383,13 +383,17 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       let wordClassName = 'mr-2 px-1 py-0.5 rounded ';
       
       if (wordIndex < currentWordIndex) {
-        if (typedWord === word) {
-          wordClassName += 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30';
+        if (testSettings.showErrors) {
+          if (typedWord === word) {
+            wordClassName += 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30';
+          } else {
+            wordClassName += 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30';
+          }
         } else {
-          wordClassName += 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30';
+          wordClassName += 'text-gray-900 dark:text-gray-100';
         }
       } else if (wordIndex === currentWordIndex) {
-        if (settings.highlightText && isActive) {
+        if (testSettings.highlightText && isActive) {
           wordClassName += 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 border-2 border-blue-400';
         } else {
           wordClassName += 'text-gray-900 dark:text-gray-100';
