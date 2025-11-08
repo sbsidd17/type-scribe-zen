@@ -180,6 +180,26 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Block problematic keyboard shortcuts during test
+    if (isActive || isFinished) {
+      // Block Ctrl/Cmd + C, V, X, A, U, R, F, etc.
+      if ((e.ctrlKey || e.metaKey) && (
+        e.key === 'c' || e.key === 'v' || e.key === 'x' || 
+        e.key === 'a' || e.key === 'u' || e.key === 'r' || 
+        e.key === 'f' || e.key === 's' || e.key === 'p' ||
+        e.key === 'z' || e.key === 'y'
+      )) {
+        e.preventDefault();
+        return;
+      }
+      
+      // Block F5 refresh
+      if (e.key === 'F5') {
+        e.preventDefault();
+        return;
+      }
+    }
+    
     if (!isActive && e.key !== 'Tab') {
       startTest();
     }
@@ -209,6 +229,12 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
+    
+    // Handle Hindi special characters input (including Alt key combinations)
+    if (selectedTest?.language === 'hindi' && e.nativeEvent instanceof InputEvent) {
+      // Allow all input methods including IME and Alt key combinations
+      // This ensures special Hindi characters work properly
+    }
     
     if (value.includes(' ') && !userInput.includes(' ')) {
       return;
@@ -906,6 +932,11 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
                   focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400
                   placeholder:text-gray-500 dark:placeholder:text-gray-400`}
                 style={selectedTest.language === 'hindi' ? { fontFamily: 'Noto Sans Devanagari, Mangal, serif' } : {}}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                inputMode={selectedTest.language === 'hindi' ? 'text' : 'text'}
               />
               
               <div className="flex justify-between items-center">
