@@ -470,7 +470,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   }
 
   // Language Selection Step  
-  if (!selectedLanguage && !currentTest) {
+  if (!selectedLanguage && !selectedTest) {
     return (
       <Card className="border-2 shadow-lg">
         <CardHeader className="text-center pb-2">
@@ -541,7 +541,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   ).filter(Boolean);
 
   // Category Selection Step
-  if (selectedLanguage && !selectedCategory && !currentTest) {
+  if (selectedLanguage && !selectedCategory && !selectedTest) {
     return (
       <Card className="border-2 shadow-lg">
         <CardHeader className="text-center pb-2">
