@@ -137,12 +137,6 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       const wordRect = wordElement.getBoundingClientRect();
       const containerRect = containerElement.getBoundingClientRect();
       
-      // Calculate if we need to scroll horizontally
-      if (wordRect.left < containerRect.left || wordRect.right > containerRect.right) {
-        const scrollLeft = wordElement.offsetLeft - containerElement.offsetWidth / 2 + wordElement.offsetWidth / 2;
-        containerElement.scrollLeft = Math.max(0, scrollLeft);
-      }
-      
       // Calculate if we need to scroll vertically
       if (wordRect.top < containerRect.top || wordRect.bottom > containerRect.bottom) {
         const scrollTop = wordElement.offsetTop - containerElement.offsetHeight / 2 + wordElement.offsetHeight / 2;
@@ -476,7 +470,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   }
 
   // Language Selection Step  
-  if (!selectedLanguage && !currentTest) {
+  if (!selectedLanguage && !selectedTest) {
     return (
       <Card className="border-2 shadow-lg">
         <CardHeader className="text-center pb-2">
@@ -547,7 +541,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   ).filter(Boolean);
 
   // Category Selection Step
-  if (selectedLanguage && !selectedCategory && !currentTest) {
+  if (selectedLanguage && !selectedCategory && !selectedTest) {
     return (
       <Card className="border-2 shadow-lg">
         <CardHeader className="text-center pb-2">
@@ -892,7 +886,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
           <CardContent className="space-y-4">
             <div 
               ref={displayRef}
-              className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-auto h-32 min-h-0 text-lg leading-relaxed whitespace-nowrap ${
+              className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-auto h-32 min-h-0 text-lg leading-relaxed ${
                 selectedTest.language === 'hindi' ? 'font-mangal' : 'font-mono'
               }`}
               style={selectedTest.language === 'hindi' ? { fontFamily: 'Noto Sans Devanagari, Mangal, serif' } : {}}
