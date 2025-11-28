@@ -370,18 +370,31 @@ const Results = ({ results }: ResultsProps) => {
     if (!results.originalText) return null;
     
     const originalWords = results.originalText.split(' ');
+    const typedWords = results.typedWordsArray || results.typedText?.split(' ') || [];
     const wrongIndices = new Set(results.wrongWordIndices || []);
     
     return (
       <div className="flex flex-wrap gap-1 text-base leading-relaxed">
         {originalWords.map((word, index) => {
+          const typedWord = typedWords[index] || '';
           const isWrong = wrongIndices.has(index);
+          const isTyped = index < typedWords.length;
+          
           return (
             <span
               key={index}
-              className={isWrong ? 'text-red-500 font-medium' : 'text-green-500 font-medium'}
+              className={
+                !isTyped
+                  ? 'text-gray-400'
+                  : isWrong
+                  ? 'text-red-500 font-medium'
+                  : 'text-green-500 font-medium'
+              }
             >
               {word}
+              {isWrong && isTyped && typedWord !== '' && (
+                <span className="text-red-500 text-sm">({typedWord})</span>
+              )}
             </span>
           );
         })}
