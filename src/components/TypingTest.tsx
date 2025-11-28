@@ -49,6 +49,8 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   const [typedKeystrokes, setTypedKeystrokes] = useState(0);
   const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
   const [words, setWords] = useState<string[]>([]);
+  const [typedWordsArray, setTypedWordsArray] = useState<string[]>([]);
+  const [currentTypingWord, setCurrentTypingWord] = useState('');
   const [selectedTest, setSelectedTest] = useState<TypingTest | null>(currentTest);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [categorizedTests, setCategorizedTests] = useState<Record<string, TypingTest[]>>({});
@@ -152,6 +154,8 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     setCurrentWordIndex(0);
     setCurrentCharIndex(0);
     setWrongWords(new Set());
+    setTypedWordsArray([]);
+    setCurrentTypingWord('');
     setStartTime(null);
     setTypedKeystrokes(0);
     setCorrectKeystrokes(0);
@@ -216,18 +220,23 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     if (e.key === ' ') {
       e.preventDefault();
       
-      const currentTypedWords = userInput.trim().split(' ');
       const expectedWord = words[currentWordIndex];
-      const typedWord = currentTypedWords[currentWordIndex] || '';
+      const typedWord = currentTypingWord;
       
+      // Record the typed word (even if empty/skipped)
+      setTypedWordsArray(prev => [...prev, typedWord]);
+      
+      // Check if word matches
       if (typedWord !== expectedWord) {
         setWrongWords(prev => new Set([...prev, currentWordIndex]));
       } else {
         setCorrectKeystrokes(prev => prev + typedWord.length + 1); // +1 for space
       }
       
+      // Move to next word
       if (currentWordIndex < words.length - 1) {
         setCurrentWordIndex(prev => prev + 1);
+        setCurrentTypingWord('');
         setUserInput(prev => prev + ' ');
       }
     }
@@ -261,21 +270,20 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
 
     setUserInput(value);
     
-    const typedWords = value.split(' ');
-    const currentTypedWord = typedWords[currentWordIndex] || '';
+    // Extract current word being typed (after last space)
+    const lastSpaceIndex = value.lastIndexOf(' ');
+    const currentWord = lastSpaceIndex >= 0 ? value.substring(lastSpaceIndex + 1) : value;
+    setCurrentTypingWord(currentWord);
+    
     const expectedWord = words[currentWordIndex] || '';
     
+    // Calculate correct keystrokes from completed words
     let correctCount = 0;
     const newWrongWords = new Set<number>();
     
-    for (let i = 0; i < Math.min(currentTypedWord.length, expectedWord.length); i++) {
-      if (currentTypedWord[i] === expectedWord[i]) {
-        correctCount++;
-      }
-    }
-    
-    for (let i = 0; i < currentWordIndex; i++) {
-      const typedWord = typedWords[i] || '';
+    // Count correct keystrokes from already completed words
+    for (let i = 0; i < typedWordsArray.length; i++) {
+      const typedWord = typedWordsArray[i];
       const expectedWordAtIndex = words[i] || '';
       
       if (typedWord === expectedWordAtIndex) {
@@ -285,14 +293,22 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       }
     }
     
-    if (currentTypedWord.length > 0 && currentTypedWord !== expectedWord.substring(0, currentTypedWord.length)) {
+    // Check current word being typed
+    for (let i = 0; i < Math.min(currentWord.length, expectedWord.length); i++) {
+      if (currentWord[i] === expectedWord[i]) {
+        correctCount++;
+      }
+    }
+    
+    if (currentWord.length > 0 && currentWord !== expectedWord.substring(0, currentWord.length)) {
       newWrongWords.add(currentWordIndex);
     }
     
     setCorrectKeystrokes(correctCount);
     setWrongWords(newWrongWords);
     
-    if (currentWordIndex >= words.length - 1 && currentTypedWord === expectedWord) {
+    // Check if test is complete
+    if (currentWordIndex >= words.length - 1 && currentWord === expectedWord) {
       handleTestComplete();
     }
   };
@@ -307,16 +323,21 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     // time_limit is already in seconds
     const timeTaken = startTime ? (endTime.getTime() - startTime.getTime()) / 1000 : selectedTest?.time_limit || 60;
     
-    const typedWords = userInput.trim().split(' ').filter(word => word.length > 0);
-    const totalTypedChars = typedWords.join('').length;
-    const correctWords = typedWords.filter((word, index) => word === words[index]).length;
-    const incorrectWords = typedWords.length - correctWords;
+    // Add the last word being typed to the array if not already added
+    let finalTypedWords = [...typedWordsArray];
+    if (currentTypingWord && finalTypedWords.length <= currentWordIndex) {
+      finalTypedWords.push(currentTypingWord);
+    }
+    
+    const totalTypedChars = finalTypedWords.join('').length;
+    const correctWords = finalTypedWords.filter((word, index) => word === words[index]).length;
+    const incorrectWords = finalTypedWords.length - correctWords;
     
     // Calculate accuracy based on actual keystrokes (character-level accuracy)
-    const accuracy = typedKeystrokes > 0 ? (correctWords / typedWords.length) * 100 : 0;
+    const accuracy = finalTypedWords.length > 0 ? (correctWords / finalTypedWords.length) * 100 : 0;
     
     const wpm = Math.round((correctWords) / (timeTaken / 60));
-    const grossWpm = Math.round((typedWords.length) / (timeTaken / 60));
+    const grossWpm = Math.round((finalTypedWords.length) / (timeTaken / 60));
     
     const keystrokeAccuracy = typedKeystrokes > 0 ? (correctKeystrokes / typedKeystrokes) * 100 : 0;
     
@@ -328,7 +349,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       grossWpm,
       accuracy: Math.round(accuracy * 100) / 100,
       totalWords: words.length,
-      typedWords: typedWords.length,
+      typedWords: finalTypedWords.length,
       correctWords,
       incorrectWords,
       totalKeystrokes,
@@ -343,10 +364,11 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       testId: selectedTest?.id,
       originalText: words.join(' '),
       typedText: userInput,
+      typedWordsArray: finalTypedWords,
       wrongWordIndices: Array.from(wrongWords)
     };
     // Check if qualifies for leaderboard (85%+ accuracy AND 10min+ OR 400+ words)
-    const qualifiesForLeaderboard = keystrokeAccuracy >= 85 && (timeTaken >= 600 || typedWords.length >= 400);
+    const qualifiesForLeaderboard = keystrokeAccuracy >= 85 && (timeTaken >= 600 || finalTypedWords.length >= 400);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();

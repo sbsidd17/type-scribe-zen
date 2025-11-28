@@ -53,6 +53,7 @@ interface TestResults {
   testId?: string;
   originalText?: string;
   typedText?: string;
+  typedWordsArray?: string[];
   wrongWordIndices?: number[];
 }
 
@@ -364,6 +365,30 @@ const Results = ({ results }: ResultsProps) => {
 
   const performance = getPerformanceLevel(results.wpm);
 
+  // Render paragraph with colored words
+  const renderColoredParagraph = () => {
+    if (!results.originalText) return null;
+    
+    const originalWords = results.originalText.split(' ');
+    const wrongIndices = new Set(results.wrongWordIndices || []);
+    
+    return (
+      <div className="flex flex-wrap gap-1 text-base leading-relaxed">
+        {originalWords.map((word, index) => {
+          const isWrong = wrongIndices.has(index);
+          return (
+            <span
+              key={index}
+              className={isWrong ? 'text-red-500 font-medium' : 'text-green-500 font-medium'}
+            >
+              {word}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   const formatTime = (seconds: number) => {
     if (seconds >= 60) {
       const minutes = Math.floor(seconds / 60);
@@ -506,6 +531,33 @@ const Results = ({ results }: ResultsProps) => {
               <div className="text-xs text-muted-foreground">Words Typed</div>
             </div>
           </div>
+
+          {/* Colored Paragraph Display */}
+          {results.originalText && (
+            <Card className="bg-muted/50">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Test Text Review
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-40 w-full rounded-md border p-4">
+                  {renderColoredParagraph()}
+                </ScrollArea>
+                <div className="flex gap-4 mt-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-green-500"></span>
+                    <span className="text-muted-foreground">Correct words</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-red-500"></span>
+                    <span className="text-muted-foreground">Wrong words</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* View History Button */}
           <div className="flex justify-center">
