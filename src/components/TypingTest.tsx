@@ -174,6 +174,14 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Start test on first key press (except Tab and blocked shortcuts)
+    if (!isActive && !isFinished && e.key !== 'Tab') {
+      // Don't start on Ctrl/Cmd shortcuts
+      if (!(e.ctrlKey || e.metaKey)) {
+        startTest();
+      }
+    }
+    
     // Block problematic keyboard shortcuts during test
     if (isActive || isFinished) {
       // Block Ctrl/Cmd + C, V, X, A, U, R, F, etc.
@@ -194,12 +202,10 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       }
     }
     
-    if (!isActive && e.key !== 'Tab') {
-      startTest();
-    }
-    
     // Only count typed keystrokes, totalKeystrokes is calculated from test content
-    setTypedKeystrokes(prev => prev + 1);
+    if (isActive) {
+      setTypedKeystrokes(prev => prev + 1);
+    }
 
     if (e.key === ' ') {
       e.preventDefault();
@@ -232,10 +238,6 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     
     if (value.includes(' ') && !userInput.includes(' ')) {
       return;
-    }
-    
-    if (!isActive && value.length > 0) {
-      startTest();
     }
 
     // Handle backspace restrictions - check before processing
