@@ -128,7 +128,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
     return () => clearInterval(interval);
   }, [isActive, timeLeft]);
 
-  // Auto-scroll to current word
+  // Auto-scroll to current word (vertical scrolling only)
   useEffect(() => {
     if (currentWordRef.current && displayRef.current && isActive) {
       const wordElement = currentWordRef.current;
@@ -137,16 +137,10 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       const wordRect = wordElement.getBoundingClientRect();
       const containerRect = containerElement.getBoundingClientRect();
       
-      // Calculate if we need to scroll horizontally
-      if (wordRect.left < containerRect.left || wordRect.right > containerRect.right) {
-        const scrollLeft = wordElement.offsetLeft - containerElement.offsetWidth / 2 + wordElement.offsetWidth / 2;
-        containerElement.scrollLeft = Math.max(0, scrollLeft);
-      }
-      
-      // Calculate if we need to scroll vertically
+      // Only calculate vertical scrolling
       if (wordRect.top < containerRect.top || wordRect.bottom > containerRect.bottom) {
-        const scrollTop = wordElement.offsetTop - containerElement.offsetHeight / 2 + wordElement.offsetHeight / 2;
-        containerElement.scrollTop = Math.max(0, scrollTop);
+        // Scroll to keep the current word visible in the middle of the container
+        wordElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   }, [currentWordIndex, isActive]);
@@ -406,7 +400,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
       const typedWords = userInput.split(' ');
       const typedWord = typedWords[wordIndex] || '';
       
-      let wordClassName = 'mr-2 px-1 py-0.5 rounded ';
+      let wordClassName = 'inline-block mr-2 mb-1 px-1 py-0.5 rounded ';
       
       if (wordIndex < currentWordIndex) {
         if (testSettings.showErrors) {
@@ -892,7 +886,7 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
           <CardContent className="space-y-4">
             <div 
               ref={displayRef}
-              className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-auto h-32 min-h-0 text-lg leading-relaxed whitespace-nowrap ${
+              className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-y-auto h-40 min-h-0 text-lg leading-relaxed ${
                 selectedTest.language === 'hindi' ? 'font-mangal' : 'font-mono'
               }`}
               style={selectedTest.language === 'hindi' ? { fontFamily: 'Noto Sans Devanagari, Mangal, serif' } : {}}
