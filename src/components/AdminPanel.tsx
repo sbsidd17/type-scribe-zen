@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Edit, Plus, Save, X, Users, CheckCircle, XCircle, Ban, UserCheck, History } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, Users, CheckCircle, XCircle, Ban, UserCheck, History, Download, CalendarIcon, FileText } from 'lucide-react';
 import { NoticeManager } from './NoticeManager';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -27,6 +27,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { exportUserTestHistory, exportTopUsersByDate, exportAllTimeTopUsers, exportPerTestTopUsers } from '@/utils/pdfExport';
 
 interface TypingTest {
   id: string;
@@ -69,6 +74,8 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
   });
 
   const [selectedUserForHistory, setSelectedUserForHistory] = useState<string | null>(null);
+  const [selectedDateForReport, setSelectedDateForReport] = useState<Date>();
+  const [selectedTestForReport, setSelectedTestForReport] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -479,6 +486,121 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
     return `${seconds}s`;
   };
 
+  // Fetch leaderboard data for reports
+  const { data: allTimeTopUsers = [] } = useQuery({
+    queryKey: ['all-time-leaderboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_leaderboard', { p_test_id: null });
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  // Fetch leaderboard data for specific test
+  const { data: testTopUsers = [] } = useQuery({
+    queryKey: ['test-leaderboard', selectedTestForReport],
+    queryFn: async () => {
+      if (!selectedTestForReport) return [];
+      const { data, error } = await supabase.rpc('get_leaderboard', { p_test_id: selectedTestForReport });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedTestForReport
+  });
+
+  const handleExportUserHistory = (userName: string) => {
+    if (userTestHistory.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'No test history available to export',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      exportUserTestHistory(userName, userTestHistory);
+      toast({
+        title: 'Success',
+        description: 'User test history exported successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export test history',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExportAllTimeTopUsers = () => {
+    if (allTimeTopUsers.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'No leaderboard data available to export',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      exportAllTimeTopUsers(allTimeTopUsers);
+      toast({
+        title: 'Success',
+        description: 'All-time top users report exported successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export report',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExportTestTopUsers = async () => {
+    if (!selectedTestForReport) {
+      toast({
+        title: 'Error',
+        description: 'Please select a test first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (testTopUsers.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'No leaderboard data available for this test',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Fetch test details
+      const { data: testData, error } = await supabase
+        .from('typing_tests')
+        .select('title, content')
+        .eq('id', selectedTestForReport)
+        .single();
+
+      if (error) throw error;
+
+      exportPerTestTopUsers(testData.title, testData.content, testTopUsers);
+      toast({
+        title: 'Success',
+        description: 'Test top users report exported successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export report',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -884,6 +1006,64 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
             {/* User Management Tab */}
             <TabsContent value="users">
               <div className="space-y-6">
+                {/* Top Users Reports Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Generate Top Users Reports
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* All-Time Top Users */}
+                      <Card className="p-4">
+                        <h3 className="font-semibold mb-2">All-Time Top Users</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Export leaderboard of top performing users across all tests
+                        </p>
+                        <Button 
+                          onClick={handleExportAllTimeTopUsers}
+                          className="w-full"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Export All-Time Report
+                        </Button>
+                      </Card>
+
+                      {/* Per-Test Top Users */}
+                      <Card className="p-4">
+                        <h3 className="font-semibold mb-2">Per-Test Top Users</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Export leaderboard for a specific test with test details
+                        </p>
+                        <div className="space-y-2">
+                          <Select value={selectedTestForReport || ''} onValueChange={setSelectedTestForReport}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a test" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {tests.filter(t => t.is_active).map((test) => (
+                                <SelectItem key={test.id} value={test.id}>
+                                  {test.title} ({test.category})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            onClick={handleExportTestTopUsers}
+                            disabled={!selectedTestForReport}
+                            className="w-full"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Export Test Report
+                          </Button>
+                        </div>
+                      </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -949,9 +1129,19 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
                                     </DialogTrigger>
                                     <DialogContent className="max-w-4xl max-h-[80vh]">
                                       <DialogHeader>
-                                        <DialogTitle className="flex items-center gap-2">
-                                          <History className="h-5 w-5" />
-                                          Test History - {user.full_name || 'Unknown'}
+                                        <DialogTitle className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            <History className="h-5 w-5" />
+                                            Test History - {user.full_name || 'Unknown'}
+                                          </div>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleExportUserHistory(user.full_name || 'Unknown')}
+                                          >
+                                            <Download className="h-4 w-4 mr-2" />
+                                            Export PDF
+                                          </Button>
                                         </DialogTitle>
                                       </DialogHeader>
                                       <ScrollArea className="h-[60vh] pr-4">
