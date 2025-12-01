@@ -4,19 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { FileText, Play, RotateCcw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FileText, Play } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CustomTextTestProps {
-  onStartTest: (customTest: { content: string; time_limit: number }) => void;
-  onBack: () => void;
+  onStartTest: (testId: string) => void;
 }
 
-const CustomTextTest = ({ onStartTest, onBack }: CustomTextTestProps) => {
+const CustomTextTest = ({ onStartTest }: CustomTextTestProps) => {
   const [customText, setCustomText] = useState('');
   const [timeLimit, setTimeLimit] = useState(60);
+  const [selectedLanguage, setSelectedLanguage] = useState<'english' | 'hindi'>('english');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleStartTest = () => {
+  const handleStartTest = async () => {
     if (!customText.trim()) {
       toast({
         title: "Empty text",
@@ -36,10 +39,59 @@ const CustomTextTest = ({ onStartTest, onBack }: CustomTextTestProps) => {
       return;
     }
 
-    onStartTest({
-      content: customText.trim(),
-      time_limit: timeLimit
-    });
+    setIsSubmitting(true);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to create custom tests.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create a title from first few words
+      const titleWords = customText.trim().split(/\s+/).slice(0, 5).join(' ');
+      const title = titleWords.length > 50 ? titleWords.substring(0, 47) + '...' : titleWords;
+
+      // Insert custom test into database
+      const { data: newTest, error } = await supabase
+        .from('typing_tests')
+        .insert({
+          title: title,
+          content: customText.trim(),
+          language: selectedLanguage,
+          category: 'Custom Text',
+          time_limit: timeLimit,
+          difficulty: 'medium',
+          is_active: false // Inactive by default, admin must activate
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Custom test created!",
+        description: "Your custom test has been saved. Starting practice now...",
+      });
+
+      // Start the test with the newly created test ID
+      onStartTest(newTest.id);
+
+    } catch (error: any) {
+      console.error('Error creating custom test:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create custom test. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const wordCount = customText.trim() ? customText.trim().split(/\s+/).length : 0;
@@ -57,6 +109,24 @@ const CustomTextTest = ({ onStartTest, onBack }: CustomTextTestProps) => {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <Label htmlFor="language" className="text-base font-semibold">
+            Select Language
+          </Label>
+          <Select
+            value={selectedLanguage}
+            onValueChange={(value: 'english' | 'hindi') => setSelectedLanguage(value)}
+          >
+            <SelectTrigger id="language">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="english">English</SelectItem>
+              <SelectItem value="hindi">Hindi</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-3">
           <Label htmlFor="custom-text" className="text-base font-semibold">
             Enter Your Text
@@ -108,20 +178,13 @@ const CustomTextTest = ({ onStartTest, onBack }: CustomTextTestProps) => {
 
         <div className="flex gap-3 pt-4">
           <Button
-            variant="outline"
-            onClick={onBack}
-            className="flex-1"
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Back to Tests
-          </Button>
-          <Button
             onClick={handleStartTest}
-            disabled={wordCount < 10}
-            className="flex-1"
+            disabled={wordCount < 10 || isSubmitting}
+            className="w-full"
+            size="lg"
           >
             <Play className="h-4 w-4 mr-2" />
-            Start Practice
+            {isSubmitting ? 'Creating Test...' : 'Start Practice'}
           </Button>
         </div>
 
@@ -132,10 +195,11 @@ const CustomTextTest = ({ onStartTest, onBack }: CustomTextTestProps) => {
               Tips for Custom Text Practice
             </h4>
             <ul className="text-sm space-y-1 text-muted-foreground list-disc list-inside">
-              <li>Paste articles, quotes, or any text you want to practice</li>
-              <li>Perfect for learning specific terminology or technical content</li>
-              <li>Minimum 10 words required for meaningful practice</li>
-              <li>Adjust time limit based on text length and difficulty</li>
+              <li>Choose your language (English or Hindi)</li>
+              <li>Paste or type any text you want to practice (minimum 10 words)</li>
+              <li>Set your preferred time limit (30-300 seconds)</li>
+              <li>Your test will be saved under "Custom Text" category</li>
+              <li>Tests are inactive by default - admins can activate them for leaderboards</li>
             </ul>
           </CardContent>
         </Card>

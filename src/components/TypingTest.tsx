@@ -615,20 +615,35 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
   if (customTextMode) {
     return (
       <CustomTextTest 
-        onStartTest={(customTest) => {
+        onStartTest={async (testId) => {
+          // Fetch the newly created test from database
+          const { data: test, error } = await supabase
+            .from('typing_tests')
+            .select('*')
+            .eq('id', testId)
+            .single();
+
+          if (error || !test) {
+            toast({
+              title: "Error",
+              description: "Failed to load custom test. Please try again.",
+              variant: "destructive"
+            });
+            return;
+          }
+
           const customTypingTest: TypingTest = {
-            id: 'custom-text',
-            title: 'Custom Text Practice',
-            content: processText(customTest.content),
-            language: 'english',
-            difficulty: 'medium',
-            category: 'Custom',
-            time_limit: customTest.time_limit
+            id: test.id,
+            title: test.title,
+            content: processText(test.content),
+            language: test.language as 'english' | 'hindi',
+            difficulty: test.difficulty as 'easy' | 'medium' | 'hard',
+            category: test.category,
+            time_limit: test.time_limit
           };
           setSelectedTest(customTypingTest);
           setCustomTextMode(false);
         }}
-        onBack={() => setCustomTextMode(false)}
       />
     );
   }
