@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import logoImage from '@/assets/typescribe-logo.jpg';
 
 interface TestResult {
   id: string;
@@ -28,6 +27,8 @@ interface TopUser {
   time_taken: number;
   total_words: number;
   display_name: string;
+  completed_at?: string;
+  language?: string;
 }
 
 // Add website branding header to PDF
@@ -42,29 +43,22 @@ const addBrandingHeader = (doc: jsPDF, title: string) => {
   doc.setFillColor(129, 140, 248);
   doc.rect(0, 28, pageWidth, 7, 'F');
   
-  // Add logo
-  try {
-    doc.addImage(logoImage, 'JPEG', 15, 8, 20, 20);
-  } catch (error) {
-    console.error('Failed to add logo:', error);
-  }
-  
   // Add website name
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('TypeScribe Zen', 40, 16);
+  doc.text('TypeScribe Zen', 15, 16);
   
   // Add tagline
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Master your typing skills', 40, 23);
+  doc.text('Master your typing skills', 15, 23);
   
   // Add clickable website link
   doc.setTextColor(196, 181, 253); // Light purple
   doc.setFontSize(9);
   const linkText = 'https://typescribe.vercel.app/';
-  doc.textWithLink(linkText, 40, 29, { url: linkText });
+  doc.textWithLink(linkText, 15, 29, { url: linkText });
   
   // Add report title on the right
   doc.setTextColor(255, 255, 255);
@@ -210,7 +204,7 @@ export const exportTopUsersByDate = async (date: string, topUsers: TopUser[], te
   doc.text(`Report Generated: ${new Date().toLocaleString()}`, 15, 58);
   doc.text('Qualification: 85%+ accuracy AND (10+ minutes OR 400+ words)', 15, 64);
   
-  // Prepare table data with date column
+  // Prepare table data with date and language columns
   const tableData = topUsers.map((user, index) => [
     (index + 1).toString(),
     user.display_name,
@@ -218,13 +212,14 @@ export const exportTopUsersByDate = async (date: string, topUsers: TopUser[], te
     `${Number(user.accuracy).toFixed(1)}%`,
     formatTime(user.time_taken),
     user.total_words?.toString() || '0',
+    user.language?.toUpperCase() || 'N/A',
     new Date(date).toLocaleDateString()
   ]);
   
   // Add table
   autoTable(doc, {
     startY: 72,
-    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words', 'Date']],
+    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words', 'Language', 'Date']],
     body: tableData,
     theme: 'striped',
     headStyles: {
@@ -241,13 +236,14 @@ export const exportTopUsersByDate = async (date: string, topUsers: TopUser[], te
       fillColor: [248, 250, 252]
     },
     columnStyles: {
-      0: { cellWidth: 20, halign: 'center' },
-      1: { cellWidth: 55 },
-      2: { cellWidth: 22, halign: 'center' },
-      3: { cellWidth: 22, halign: 'center' },
-      4: { cellWidth: 28, halign: 'center' },
-      5: { cellWidth: 28, halign: 'center' },
-      6: { cellWidth: 25, halign: 'center' }
+      0: { cellWidth: 18, halign: 'center' },
+      1: { cellWidth: 45 },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 24, halign: 'center' },
+      5: { cellWidth: 24, halign: 'center' },
+      6: { cellWidth: 20, halign: 'center' },
+      7: { cellWidth: 22, halign: 'center' }
     }
   });
   
@@ -278,7 +274,7 @@ export const exportAllTimeTopUsers = (topUsers: TopUser[]) => {
   doc.text(`Report Generated: ${new Date().toLocaleString()}`, 15, 58);
   doc.text('Qualification: 85%+ accuracy AND (10+ minutes OR 400+ words)', 15, 64);
   
-  // Prepare table data
+  // Prepare table data with date and language
   const tableData = topUsers.map((user, index) => [
     (index + 1).toString(),
     user.display_name,
@@ -286,12 +282,14 @@ export const exportAllTimeTopUsers = (topUsers: TopUser[]) => {
     `${Number(user.accuracy).toFixed(1)}%`,
     formatTime(user.time_taken),
     user.total_words?.toString() || '0',
+    user.language?.toUpperCase() || 'N/A',
+    user.completed_at ? new Date(user.completed_at).toLocaleDateString() : 'N/A'
   ]);
   
   // Add table
   autoTable(doc, {
     startY: 72,
-    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words']],
+    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words', 'Language', 'Date']],
     body: tableData,
     theme: 'striped',
     headStyles: {
@@ -308,12 +306,14 @@ export const exportAllTimeTopUsers = (topUsers: TopUser[]) => {
       fillColor: [248, 250, 252]
     },
     columnStyles: {
-      0: { cellWidth: 20, halign: 'center' },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 25, halign: 'center' },
-      3: { cellWidth: 25, halign: 'center' },
-      4: { cellWidth: 30, halign: 'center' },
-      5: { cellWidth: 30, halign: 'center' }
+      0: { cellWidth: 18, halign: 'center' },
+      1: { cellWidth: 45 },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 24, halign: 'center' },
+      5: { cellWidth: 24, halign: 'center' },
+      6: { cellWidth: 20, halign: 'center' },
+      7: { cellWidth: 22, halign: 'center' }
     }
   });
   
@@ -354,7 +354,7 @@ export const exportPerTestTopUsers = (testTitle: string, testContent: string, to
   // Calculate startY based on content preview length
   const startY = 71 + (splitContent.length * 4) + 6;
   
-  // Prepare table data
+  // Prepare table data with date and language
   const tableData = topUsers.map((user, index) => [
     (index + 1).toString(),
     user.display_name,
@@ -362,12 +362,14 @@ export const exportPerTestTopUsers = (testTitle: string, testContent: string, to
     `${Number(user.accuracy).toFixed(1)}%`,
     formatTime(user.time_taken),
     user.total_words?.toString() || '0',
+    user.language?.toUpperCase() || 'N/A',
+    user.completed_at ? new Date(user.completed_at).toLocaleDateString() : 'N/A'
   ]);
   
   // Add table
   autoTable(doc, {
     startY: startY,
-    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words']],
+    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words', 'Language', 'Date']],
     body: tableData,
     theme: 'striped',
     headStyles: {
@@ -384,12 +386,14 @@ export const exportPerTestTopUsers = (testTitle: string, testContent: string, to
       fillColor: [248, 250, 252]
     },
     columnStyles: {
-      0: { cellWidth: 20, halign: 'center' },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 25, halign: 'center' },
-      3: { cellWidth: 25, halign: 'center' },
-      4: { cellWidth: 30, halign: 'center' },
-      5: { cellWidth: 30, halign: 'center' }
+      0: { cellWidth: 18, halign: 'center' },
+      1: { cellWidth: 45 },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 20, halign: 'center' },
+      4: { cellWidth: 24, halign: 'center' },
+      5: { cellWidth: 24, halign: 'center' },
+      6: { cellWidth: 20, halign: 'center' },
+      7: { cellWidth: 22, halign: 'center' }
     }
   });
   

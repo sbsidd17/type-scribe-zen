@@ -486,23 +486,75 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
     return `${seconds}s`;
   };
 
-  // Fetch leaderboard data for reports
+  // Fetch leaderboard data for reports with additional data
   const { data: allTimeTopUsers = [] } = useQuery({
     queryKey: ['all-time-leaderboard'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_leaderboard', { p_test_id: null });
       if (error) throw error;
+      
+      // Fetch additional data (completed_at and language) for each result
+      if (data && data.length > 0) {
+        const resultIds = data.map((item: any) => item.result_id);
+        const { data: additionalData, error: additionalError } = await supabase
+          .from('test_results')
+          .select(`
+            id,
+            completed_at,
+            typing_tests!inner(language)
+          `)
+          .in('id', resultIds);
+        
+        if (!additionalError && additionalData) {
+          // Merge additional data with leaderboard data
+          return data.map((item: any) => {
+            const additional = additionalData.find((ad: any) => ad.id === item.result_id);
+            return {
+              ...item,
+              completed_at: additional?.completed_at,
+              language: additional?.typing_tests?.language || 'english'
+            };
+          });
+        }
+      }
+      
       return data || [];
     }
   });
 
-  // Fetch leaderboard data for specific test
+  // Fetch leaderboard data for specific test with additional data
   const { data: testTopUsers = [] } = useQuery({
     queryKey: ['test-leaderboard', selectedTestForReport],
     queryFn: async () => {
       if (!selectedTestForReport) return [];
       const { data, error } = await supabase.rpc('get_leaderboard', { p_test_id: selectedTestForReport });
       if (error) throw error;
+      
+      // Fetch additional data (completed_at and language) for each result
+      if (data && data.length > 0) {
+        const resultIds = data.map((item: any) => item.result_id);
+        const { data: additionalData, error: additionalError } = await supabase
+          .from('test_results')
+          .select(`
+            id,
+            completed_at,
+            typing_tests!inner(language)
+          `)
+          .in('id', resultIds);
+        
+        if (!additionalError && additionalData) {
+          // Merge additional data with leaderboard data
+          return data.map((item: any) => {
+            const additional = additionalData.find((ad: any) => ad.id === item.result_id);
+            return {
+              ...item,
+              completed_at: additional?.completed_at,
+              language: additional?.typing_tests?.language || 'english'
+            };
+          });
+        }
+      }
+      
       return data || [];
     },
     enabled: !!selectedTestForReport
@@ -571,7 +623,7 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
     try {
       const dateStr = format(selectedDateForReport, 'yyyy-MM-dd');
       
-      // Fetch top users for the selected date
+      // Fetch top users for the selected date with language
       const { data, error } = await supabase
         .from('test_results')
         .select(`
@@ -582,7 +634,9 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
           time_taken,
           total_words,
           completed_at,
-          profiles!inner(full_name, email)
+          test_id,
+          profiles!inner(full_name, email),
+          typing_tests!inner(language)
         `)
         .gte('completed_at', `${dateStr}T00:00:00`)
         .lte('completed_at', `${dateStr}T23:59:59`)
@@ -603,6 +657,8 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
           accuracy: result.accuracy,
           time_taken: result.time_taken,
           total_words: result.total_words || 0,
+          completed_at: result.completed_at,
+          language: result.typing_tests?.language || 'english',
           display_name: result.profiles?.full_name || 
                        result.profiles?.email?.split('@')[0] || 
                        'Anonymous'
