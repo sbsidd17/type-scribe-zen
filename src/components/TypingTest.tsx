@@ -641,6 +641,10 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
             category: test.category,
             time_limit: test.time_limit
           };
+          
+          // Set language and category to properly navigate to test screen
+          setSelectedLanguage(customTypingTest.language);
+          setSelectedCategory('Custom Text');
           setSelectedTest(customTypingTest);
           setCustomTextMode(false);
         }}
