@@ -34,6 +34,10 @@ interface TopUser {
 // Add website branding header to PDF
 const addBrandingHeader = (doc: jsPDF, title: string) => {
   const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  
+  // Add full-page clickable link
+  doc.link(0, 0, pageWidth, pageHeight, { url: 'https://typescribe.vercel.app/' });
   
   // Single color modern background
   doc.setFillColor(79, 70, 229); // Indigo
