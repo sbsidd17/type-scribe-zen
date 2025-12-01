@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Edit, Plus, Save, X, Users, CheckCircle, XCircle, Ban, UserCheck } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, Users, CheckCircle, XCircle, Ban, UserCheck, History } from 'lucide-react';
 import { NoticeManager } from './NoticeManager';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,6 +25,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TypingTest {
   id: string;
@@ -65,6 +67,8 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
     category: '',
     time_limit: 0
   });
+
+  const [selectedUserForHistory, setSelectedUserForHistory] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -110,6 +114,31 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
       
       return usersWithCounts;
     }
+  });
+
+  // Fetch test history for selected user
+  const { data: userTestHistory = [] } = useQuery({
+    queryKey: ['user-test-history', selectedUserForHistory],
+    queryFn: async () => {
+      if (!selectedUserForHistory) return [];
+      
+      const { data, error } = await supabase
+        .from('test_results')
+        .select(`
+          *,
+          typing_tests (
+            title,
+            category,
+            language
+          )
+        `)
+        .eq('user_id', selectedUserForHistory)
+        .order('completed_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedUserForHistory
   });
 
   const handleUpdateUserStatus = async (userId: string, status: string) => {
@@ -907,6 +936,86 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
                               </TableCell>
                               <TableCell>
                                 <div className="flex justify-end gap-2">
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setSelectedUserForHistory(user.id)}
+                                        title="View Test History"
+                                      >
+                                        <History className="h-4 w-4" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-4xl max-h-[80vh]">
+                                      <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2">
+                                          <History className="h-5 w-5" />
+                                          Test History - {user.full_name || 'Unknown'}
+                                        </DialogTitle>
+                                      </DialogHeader>
+                                      <ScrollArea className="h-[60vh] pr-4">
+                                        {userTestHistory.length > 0 ? (
+                                          <div className="space-y-4">
+                                            {userTestHistory.map((result: any) => (
+                                              <Card key={result.id}>
+                                                <CardContent className="pt-6">
+                                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                      <h3 className="font-semibold text-lg mb-2">
+                                                        {result.typing_tests?.title || 'Unknown Test'}
+                                                      </h3>
+                                                      <div className="space-y-1 text-sm text-muted-foreground">
+                                                        <p>Category: {result.typing_tests?.category || 'N/A'}</p>
+                                                        <p>Language: {result.typing_tests?.language || 'N/A'}</p>
+                                                        <p>Completed: {new Date(result.completed_at).toLocaleString()}</p>
+                                                      </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                      <div>
+                                                        <p className="text-sm text-muted-foreground">WPM</p>
+                                                        <p className="text-2xl font-bold text-primary">{Number(result.wpm).toFixed(1)}</p>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-sm text-muted-foreground">Accuracy</p>
+                                                        <p className="text-2xl font-bold text-primary">{Number(result.accuracy).toFixed(1)}%</p>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-sm text-muted-foreground">Time</p>
+                                                        <p className="text-lg font-semibold">{formatTime(result.time_taken)}</p>
+                                                      </div>
+                                                      <div>
+                                                        <p className="text-sm text-muted-foreground">Words</p>
+                                                        <p className="text-lg font-semibold">{result.total_words || 0}</p>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                  <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4 text-sm">
+                                                    <div>
+                                                      <p className="text-muted-foreground">Correct Words</p>
+                                                      <p className="font-medium text-green-600">{result.correct_words_count || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-muted-foreground">Incorrect Words</p>
+                                                      <p className="font-medium text-red-600">{result.incorrect_words || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-muted-foreground">Gross WPM</p>
+                                                      <p className="font-medium">{result.gross_wpm ? Number(result.gross_wpm).toFixed(1) : 'N/A'}</p>
+                                                    </div>
+                                                  </div>
+                                                </CardContent>
+                                              </Card>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div className="text-center py-8 text-muted-foreground">
+                                            No test history found for this user
+                                          </div>
+                                        )}
+                                      </ScrollArea>
+                                    </DialogContent>
+                                  </Dialog>
                                   {user.status !== 'active' && (
                                     <Button
                                       size="sm"
