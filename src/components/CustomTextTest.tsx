@@ -67,7 +67,7 @@ const CustomTextTest = ({ onStartTest }: CustomTextTestProps) => {
           category: 'Custom Text',
           time_limit: timeLimit,
           difficulty: 'medium',
-          is_active: false // Inactive by default, admin must activate
+          is_active: true // Active by default for immediate use
         })
         .select()
         .single();
@@ -75,8 +75,8 @@ const CustomTextTest = ({ onStartTest }: CustomTextTestProps) => {
       if (error) throw error;
 
       toast({
-        title: "Custom test created!",
-        description: "Your custom test has been saved. Starting practice now...",
+        title: "Starting practice!",
+        description: "Your custom typing test is loading...",
       });
 
       // Start the test with the newly created test ID
@@ -198,8 +198,8 @@ const CustomTextTest = ({ onStartTest }: CustomTextTestProps) => {
               <li>Choose your language (English or Hindi)</li>
               <li>Paste or type any text you want to practice (minimum 10 words)</li>
               <li>Set your preferred time limit (30-300 seconds)</li>
-              <li>Your test will be saved under "Custom Text" category</li>
-              <li>Tests are inactive by default - admins can activate them for leaderboards</li>
+              <li>Your test will be saved and started immediately</li>
+              <li>Results will be tracked in your test history</li>
             </ul>
           </CardContent>
         </Card>
