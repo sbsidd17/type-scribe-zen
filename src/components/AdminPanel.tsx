@@ -623,7 +623,7 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
     try {
       const dateStr = format(selectedDateForReport, 'yyyy-MM-dd');
       
-      // Fetch top users for the selected date with language
+      // Fetch top users for the selected date
       const { data, error } = await supabase
         .from('test_results')
         .select(`
@@ -635,15 +635,45 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
           total_words,
           completed_at,
           test_id,
-          profiles!inner(full_name, email),
-          typing_tests!inner(language)
+          profiles!inner(full_name, email)
         `)
         .gte('completed_at', `${dateStr}T00:00:00`)
         .lte('completed_at', `${dateStr}T23:59:59`)
         .gte('accuracy', 85)
         .order('wpm', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Date top users query error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        toast({
+          title: 'No Data',
+          description: 'No qualified users found for this date',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Get unique test IDs to fetch test details
+      const testIds = [...new Set(data.map((result: any) => result.test_id))];
+      
+      // Fetch test details for languages
+      const { data: testData, error: testError } = await supabase
+        .from('typing_tests')
+        .select('id, language')
+        .in('id', testIds);
+
+      if (testError) {
+        console.error('Test details query error:', testError);
+        throw testError;
+      }
+
+      // Create a map of test_id to language
+      const testLanguageMap = new Map(
+        testData?.map((test: any) => [test.id, test.language]) || []
+      );
 
       // Filter and format the data
       const topUsers = data
@@ -658,7 +688,7 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
           time_taken: result.time_taken,
           total_words: result.total_words || 0,
           completed_at: result.completed_at,
-          language: result.typing_tests?.language || 'english',
+          language: testLanguageMap.get(result.test_id) || 'english',
           display_name: result.profiles?.full_name || 
                        result.profiles?.email?.split('@')[0] || 
                        'Anonymous'
@@ -680,9 +710,10 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
         description: 'Date-wise top users report exported successfully',
       });
     } catch (error: any) {
+      console.error('Export error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to export report',
+        description: error.message || 'Failed to export report',
         variant: 'destructive',
       });
     }
