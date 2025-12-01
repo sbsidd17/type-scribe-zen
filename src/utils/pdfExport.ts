@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logoImage from '@/assets/typescribe-logo.jpg';
 
 interface TestResult {
   id: string;
@@ -31,20 +32,46 @@ interface TopUser {
 
 // Add website branding header to PDF
 const addBrandingHeader = (doc: jsPDF, title: string) => {
-  // Add logo or branding area
-  doc.setFillColor(34, 41, 47); // Dark background
-  doc.rect(0, 0, doc.internal.pageSize.width, 30, 'F');
+  const pageWidth = doc.internal.pageSize.width;
   
-  // Add website name/title
+  // Modern gradient background
+  doc.setFillColor(99, 102, 241); // Primary blue
+  doc.rect(0, 0, pageWidth, 35, 'F');
+  
+  // Add gradient effect with lighter shade
+  doc.setFillColor(129, 140, 248);
+  doc.rect(0, 28, pageWidth, 7, 'F');
+  
+  // Add logo
+  try {
+    doc.addImage(logoImage, 'JPEG', 15, 8, 20, 20);
+  } catch (error) {
+    console.error('Failed to add logo:', error);
+  }
+  
+  // Add website name
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('Typing Test Pro', 15, 15);
+  doc.text('TypeScribe Zen', 40, 16);
   
-  // Add subtitle/report title
-  doc.setFontSize(12);
+  // Add tagline
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(title, 15, 23);
+  doc.text('Master your typing skills', 40, 23);
+  
+  // Add clickable website link
+  doc.setTextColor(196, 181, 253); // Light purple
+  doc.setFontSize(9);
+  const linkText = 'https://typescribe.vercel.app/';
+  doc.textWithLink(linkText, 40, 29, { url: linkText });
+  
+  // Add report title on the right
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  const titleWidth = doc.getTextWidth(title);
+  doc.text(title, pageWidth - titleWidth - 15, 20);
   
   // Reset text color
   doc.setTextColor(0, 0, 0);
@@ -106,7 +133,7 @@ export const exportUserTestHistory = (userName: string, testHistory: TestResult[
     (index + 1).toString(),
     result.typing_tests?.title || 'Unknown Test',
     result.typing_tests?.category || 'N/A',
-    result.typing_tests?.language || 'N/A',
+    result.typing_tests?.language?.toUpperCase() || 'N/A',
     Number(result.wpm).toFixed(1),
     `${Number(result.accuracy).toFixed(1)}%`,
     formatTime(result.time_taken),
@@ -114,37 +141,43 @@ export const exportUserTestHistory = (userName: string, testHistory: TestResult[
     result.correct_words_count?.toString() || '0',
     result.incorrect_words?.toString() || '0',
     result.gross_wpm ? Number(result.gross_wpm).toFixed(1) : 'N/A',
-    new Date(result.completed_at).toLocaleDateString()
+    new Date(result.completed_at).toLocaleDateString(),
+    new Date(result.completed_at).toLocaleTimeString()
   ]);
   
   // Add table
   autoTable(doc, {
     startY: 72,
-    head: [['#', 'Test Title', 'Category', 'Language', 'WPM', 'Accuracy', 'Time', 'Words', 'Correct', 'Incorrect', 'Gross WPM', 'Date']],
+    head: [['#', 'Test Title', 'Category', 'Lang', 'WPM', 'Acc', 'Time', 'Words', 'Correct', 'Incorrect', 'Gross', 'Date', 'Time']],
     body: tableData,
-    theme: 'grid',
+    theme: 'striped',
     headStyles: {
-      fillColor: [34, 41, 47],
+      fillColor: [99, 102, 241],
       textColor: [255, 255, 255],
       fontSize: 8,
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      halign: 'center'
     },
     bodyStyles: {
       fontSize: 7
     },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
     columnStyles: {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 30 },
-      2: { cellWidth: 20 },
-      3: { cellWidth: 15 },
-      4: { cellWidth: 12 },
-      5: { cellWidth: 15 },
-      6: { cellWidth: 12 },
-      7: { cellWidth: 12 },
-      8: { cellWidth: 12 },
-      9: { cellWidth: 15 },
-      10: { cellWidth: 15 },
-      11: { cellWidth: 18 }
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 18 },
+      3: { cellWidth: 12, halign: 'center' },
+      4: { cellWidth: 12, halign: 'center' },
+      5: { cellWidth: 12, halign: 'center' },
+      6: { cellWidth: 12, halign: 'center' },
+      7: { cellWidth: 12, halign: 'center' },
+      8: { cellWidth: 12, halign: 'center' },
+      9: { cellWidth: 12, halign: 'center' },
+      10: { cellWidth: 12, halign: 'center' },
+      11: { cellWidth: 18, halign: 'center' },
+      12: { cellWidth: 15, halign: 'center' }
     },
     margin: { left: 10, right: 10 }
   });
@@ -177,7 +210,7 @@ export const exportTopUsersByDate = async (date: string, topUsers: TopUser[], te
   doc.text(`Report Generated: ${new Date().toLocaleString()}`, 15, 58);
   doc.text('Qualification: 85%+ accuracy AND (10+ minutes OR 400+ words)', 15, 64);
   
-  // Prepare table data
+  // Prepare table data with date column
   const tableData = topUsers.map((user, index) => [
     (index + 1).toString(),
     user.display_name,
@@ -185,30 +218,36 @@ export const exportTopUsersByDate = async (date: string, topUsers: TopUser[], te
     `${Number(user.accuracy).toFixed(1)}%`,
     formatTime(user.time_taken),
     user.total_words?.toString() || '0',
+    new Date(date).toLocaleDateString()
   ]);
   
   // Add table
   autoTable(doc, {
     startY: 72,
-    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words']],
+    head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words', 'Date']],
     body: tableData,
-    theme: 'grid',
+    theme: 'striped',
     headStyles: {
-      fillColor: [34, 41, 47],
+      fillColor: [99, 102, 241],
       textColor: [255, 255, 255],
       fontSize: 10,
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      halign: 'center'
     },
     bodyStyles: {
       fontSize: 9
     },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
     columnStyles: {
       0: { cellWidth: 20, halign: 'center' },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 25, halign: 'center' },
-      3: { cellWidth: 25, halign: 'center' },
-      4: { cellWidth: 30, halign: 'center' },
-      5: { cellWidth: 30, halign: 'center' }
+      1: { cellWidth: 55 },
+      2: { cellWidth: 22, halign: 'center' },
+      3: { cellWidth: 22, halign: 'center' },
+      4: { cellWidth: 28, halign: 'center' },
+      5: { cellWidth: 28, halign: 'center' },
+      6: { cellWidth: 25, halign: 'center' }
     }
   });
   
@@ -254,15 +293,19 @@ export const exportAllTimeTopUsers = (topUsers: TopUser[]) => {
     startY: 72,
     head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words']],
     body: tableData,
-    theme: 'grid',
+    theme: 'striped',
     headStyles: {
-      fillColor: [34, 41, 47],
+      fillColor: [99, 102, 241],
       textColor: [255, 255, 255],
       fontSize: 10,
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      halign: 'center'
     },
     bodyStyles: {
       fontSize: 9
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
     },
     columnStyles: {
       0: { cellWidth: 20, halign: 'center' },
@@ -326,15 +369,19 @@ export const exportPerTestTopUsers = (testTitle: string, testContent: string, to
     startY: startY,
     head: [['Rank', 'User Name', 'WPM', 'Accuracy', 'Time Taken', 'Total Words']],
     body: tableData,
-    theme: 'grid',
+    theme: 'striped',
     headStyles: {
-      fillColor: [34, 41, 47],
+      fillColor: [99, 102, 241],
       textColor: [255, 255, 255],
       fontSize: 10,
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      halign: 'center'
     },
     bodyStyles: {
       fontSize: 9
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
     },
     columnStyles: {
       0: { cellWidth: 20, halign: 'center' },

@@ -558,6 +558,80 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
     }
   };
 
+  const handleExportDateTopUsers = async () => {
+    if (!selectedDateForReport) {
+      toast({
+        title: 'Error',
+        description: 'Please select a date first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const dateStr = format(selectedDateForReport, 'yyyy-MM-dd');
+      
+      // Fetch top users for the selected date
+      const { data, error } = await supabase
+        .from('test_results')
+        .select(`
+          id,
+          user_id,
+          wpm,
+          accuracy,
+          time_taken,
+          total_words,
+          completed_at,
+          profiles!inner(full_name, email)
+        `)
+        .gte('completed_at', `${dateStr}T00:00:00`)
+        .lte('completed_at', `${dateStr}T23:59:59`)
+        .gte('accuracy', 85)
+        .order('wpm', { ascending: false });
+
+      if (error) throw error;
+
+      // Filter and format the data
+      const topUsers = data
+        .filter((result: any) => 
+          result.time_taken >= 600 || (result.total_words || 0) >= 400
+        )
+        .map((result: any) => ({
+          result_id: result.id,
+          user_id: result.user_id,
+          wpm: result.wpm,
+          accuracy: result.accuracy,
+          time_taken: result.time_taken,
+          total_words: result.total_words || 0,
+          display_name: result.profiles?.full_name || 
+                       result.profiles?.email?.split('@')[0] || 
+                       'Anonymous'
+        }))
+        .slice(0, 100);
+
+      if (topUsers.length === 0) {
+        toast({
+          title: 'No Data',
+          description: 'No qualified users found for this date',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      exportTopUsersByDate(dateStr, topUsers);
+      toast({
+        title: 'Success',
+        description: 'Date-wise top users report exported successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export report',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleExportTestTopUsers = async () => {
     if (!selectedTestForReport) {
       toast({
@@ -1015,7 +1089,7 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* All-Time Top Users */}
                       <Card className="p-4">
                         <h3 className="font-semibold mb-2">All-Time Top Users</h3>
@@ -1029,6 +1103,46 @@ const AdminPanel = ({ onTestCreated }: AdminPanelProps) => {
                           <Download className="h-4 w-4 mr-2" />
                           Export All-Time Report
                         </Button>
+                      </Card>
+
+                      {/* Date-Wise Top Users */}
+                      <Card className="p-4">
+                        <h3 className="font-semibold mb-2">Date-Wise Top Users</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Export leaderboard for a specific date
+                        </p>
+                        <div className="space-y-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !selectedDateForReport && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {selectedDateForReport ? format(selectedDateForReport, "PPP") : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={selectedDateForReport}
+                                onSelect={setSelectedDateForReport}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Button 
+                            onClick={handleExportDateTopUsers}
+                            disabled={!selectedDateForReport}
+                            className="w-full"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Export Date Report
+                          </Button>
+                        </div>
                       </Card>
 
                       {/* Per-Test Top Users */}
