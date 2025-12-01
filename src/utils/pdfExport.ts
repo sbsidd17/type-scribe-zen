@@ -35,13 +35,9 @@ interface TopUser {
 const addBrandingHeader = (doc: jsPDF, title: string) => {
   const pageWidth = doc.internal.pageSize.width;
   
-  // Modern gradient background
-  doc.setFillColor(99, 102, 241); // Primary blue
+  // Single color modern background
+  doc.setFillColor(79, 70, 229); // Indigo
   doc.rect(0, 0, pageWidth, 35, 'F');
-  
-  // Add gradient effect with lighter shade
-  doc.setFillColor(129, 140, 248);
-  doc.rect(0, 28, pageWidth, 7, 'F');
   
   // Add website name
   doc.setTextColor(255, 255, 255);
@@ -55,7 +51,7 @@ const addBrandingHeader = (doc: jsPDF, title: string) => {
   doc.text('Master your typing skills', 15, 23);
   
   // Add clickable website link
-  doc.setTextColor(196, 181, 253); // Light purple
+  doc.setTextColor(253, 224, 71); // Bright yellow for visibility
   doc.setFontSize(9);
   const linkText = 'https://typescribe.vercel.app/';
   doc.textWithLink(linkText, 15, 29, { url: linkText });
