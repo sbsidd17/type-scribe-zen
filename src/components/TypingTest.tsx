@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import CustomTextTest from './CustomTextTest';
 import { format } from 'date-fns';
+import { processText } from '@/utils/textNormalization';
 
 interface TypingTest {
   id: string;

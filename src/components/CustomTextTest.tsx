@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileText, Play } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { processText } from '@/utils/textNormalization';
 
 interface CustomTextTestProps {
   onStartTest: (testId: string) => void;
@@ -53,8 +54,11 @@ const CustomTextTest = ({ onStartTest }: CustomTextTestProps) => {
         return;
       }
 
+      // Normalize the text to remove extra spaces and paragraphs
+      const normalizedText = processText(customText);
+
       // Create a title from first few words
-      const titleWords = customText.trim().split(/\s+/).slice(0, 5).join(' ');
+      const titleWords = normalizedText.split(/\s+/).slice(0, 5).join(' ');
       const title = titleWords.length > 50 ? titleWords.substring(0, 47) + '...' : titleWords;
 
       // Insert custom test into database
@@ -62,7 +66,7 @@ const CustomTextTest = ({ onStartTest }: CustomTextTestProps) => {
         .from('typing_tests')
         .insert({
           title: title,
-          content: customText.trim(),
+          content: normalizedText,
           language: selectedLanguage,
           category: 'Custom Text',
           time_limit: timeLimit,
