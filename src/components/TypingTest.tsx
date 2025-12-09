@@ -1159,6 +1159,11 @@ const TypingTest = ({ settings, onComplete, currentTest }: TypingTestProps) => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{selectedTest.title}</CardTitle>
+              <div>
+                <Clock className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+              <div className="text-2xl font-bold">{formatTime(timeLeft)}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">remaining</div>
+              </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
